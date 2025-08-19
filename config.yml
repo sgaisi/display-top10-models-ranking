@@ -1,0 +1,56 @@
+name: Run Display top 10 models ranking
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  run-orchestrator:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_BEDROCK_REGION: us-east-2
+      AWS_JUMPSTART_REGION: us-east-2
+      JUMPSTART_EXEC_ROLE_ARN: ${{ secrets.JUMPSTART_EXEC_ROLE_ARN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install uv (ultra fast Python package installer)
+        run: |
+          pip install uv
+
+      - name: Install dependencies using uv
+        run: |
+          uv pip install -r requirements.txt
+
+      - name: Cache uv/virtualenv cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-uvcache-${{ hashFiles('requirements.txt') }}
+
+      - name: Run main script
+        run: |
+          uv run src/main.py | tee orchestrator.log
+
+
+      - name: Upload orchestrator output log
+        uses: actions/upload-artifact@v4
+        with:
+          name: orchestrator-log
+          path: orchestrator.log
